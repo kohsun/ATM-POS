@@ -85,9 +85,11 @@ button:disabled{opacity:.5}
 </div>
 <div class="total plain" id="boxTotal"><span>總金額</span><b id="total">0</b></div>
 <div class="total plain" id="boxPos"><span>共付</span><input type="text" inputmode="numeric" autocomplete="off" id="pos" placeholder="0" aria-label="共付"></div>
+<div class="total plain"><span>今日庫存</span><input type="text" inputmode="numeric" autocomplete="off" id="tstock" placeholder="0" aria-label="今日庫存"></div>
 <div class="total" id="boxSumA"><span>合計</span><b id="sumA">0</b></div>
-<div class="total plain"><span>隔日庫存</span><input type="text" inputmode="numeric" autocomplete="off" id="stock" placeholder="0" aria-label="隔日庫存"></div>
+<div class="total plain"><span>前日庫存</span><input type="text" inputmode="numeric" autocomplete="off" id="stock" placeholder="0" aria-label="前日庫存"></div>
 <div class="total plain"><span>共收</span><input type="text" inputmode="numeric" autocomplete="off" id="recv" placeholder="0" aria-label="共收"></div>
+<div class="total plain"><span>今日領用</span><input type="text" inputmode="numeric" autocomplete="off" id="draw" placeholder="0" aria-label="今日領用"></div>
 <div class="total" id="boxSum"><span>合計</span><b id="sum">0</b></div>
 <div class="total plain" id="boxDiff" style="display:none"><span>差額</span><b id="diff"></b></div>
 <div class="btns">
@@ -111,7 +113,7 @@ button:disabled{opacity:.5}
 var D=[2000,1000,500,200,100];
 var KEY='cash-records-v1';
 var list=document.getElementById('list'),totalEl=document.getElementById('total');
-var stockEl=document.getElementById('stock'),recvEl=document.getElementById('recv'),sumEl=document.getElementById('sum'),sumAEl=document.getElementById('sumA'),boxSumA=document.getElementById('boxSumA'),boxSum=document.getElementById('boxSum');
+var tstockEl=document.getElementById('tstock'),drawEl=document.getElementById('draw'),stockEl=document.getElementById('stock'),recvEl=document.getElementById('recv'),sumEl=document.getElementById('sum'),sumAEl=document.getElementById('sumA'),boxSumA=document.getElementById('boxSumA'),boxSum=document.getElementById('boxSum');
 var posEl=document.getElementById('pos'),diffEl=document.getElementById('diff'),boxTotal=document.getElementById('boxTotal'),boxPos=document.getElementById('boxPos');
 var statusEl=document.getElementById('status'),migrateBtn=document.getElementById('migrate');
 var inputs=[],subs=[],records=[],db=null;
@@ -144,8 +146,8 @@ function calc(){
   var t=0,c=counts();
   for(var i=0;i<D.length;i++){var s=c[i]*D[i];subs[i].textContent=fmt(s);t+=s}
   totalEl.textContent=fmt(t);
-  var p=getPos(),st=getNum(stockEl),rv=getNum(recvEl),has=st!==null||rv!==null;
-  var sa=t+(p||0),sm=(st||0)+(rv||0);
+  var p=getPos(),ts=getNum(tstockEl),st=getNum(stockEl),rv=getNum(recvEl),dw=getNum(drawEl),has=st!==null||rv!==null||dw!==null;
+  var sa=t+(p||0)+(ts||0),sm=(st||0)+(rv||0)+(dw||0);
   sumAEl.textContent=fmt(sa);sumEl.textContent=fmt(sm);
   diffEl.textContent=has?fmt(sa-sm):'';
   document.getElementById('boxDiff').style.display=has?'flex':'none';
@@ -164,7 +166,7 @@ function render(){
     var c=r.counts||[];
     var rows=D.map(function(d,i){var n=c[i]||0;return n?'<tr><td>'+fmt(d)+'</td><td>'+n+'</td><td>'+fmt(n*d)+'</td></tr>':''}).join('');
     return '<div class="rec"><div class="rec-top"><span class="rec-date">'+esc(r.date||'')+'</span><span class="rec-total">'+fmt(r.total||0)+'</span></div>'+
-      ((r.stock!=null||r.recv!=null)?'<div class="rec-pos">'+(r.pos!=null?'共付 '+fmt(r.pos)+' ・ ':'')+'合計 '+fmt((r.total||0)+(r.pos||0))+' ・ 隔日庫存 '+fmt(r.stock||0)+' ・ 共收 '+fmt(r.recv||0)+' ・ 合計 '+fmt((r.stock||0)+(r.recv||0))+' ・ 差額 '+fmt((r.total||0)+(r.pos||0)-(r.stock||0)-(r.recv||0))+'</div>':(r.pos!=null?'<div class="rec-pos">共付 '+fmt(r.pos)+' ・ 差額 '+fmt((r.total||0)-r.pos)+'</div>':''))+
+      ((r.stock!=null||r.recv!=null||r.draw!=null)?'<div class="rec-pos">'+(r.pos!=null?'共付 '+fmt(r.pos)+' ・ ':'')+(r.tstock!=null?'今日庫存 '+fmt(r.tstock)+' ・ ':'')+'合計 '+fmt((r.total||0)+(r.pos||0)+(r.tstock||0))+' ・ 前日庫存 '+fmt(r.stock||0)+' ・ 共收 '+fmt(r.recv||0)+(r.draw!=null?' ・ 今日領用 '+fmt(r.draw):'')+' ・ 合計 '+fmt((r.stock||0)+(r.recv||0)+(r.draw||0))+' ・ 差額 '+fmt((r.total||0)+(r.pos||0)+(r.tstock||0)-(r.stock||0)-(r.recv||0)-(r.draw||0))+'</div>':(r.pos!=null?'<div class="rec-pos">共付 '+fmt(r.pos)+' ・ 差額 '+fmt((r.total||0)-r.pos)+'</div>':''))+
       (r.note?'<div class="rec-note">'+esc(r.note)+'</div>':'')+
       '<table><tr><th>面額</th><th>張數</th><th>小計</th></tr>'+rows+'</table>'+
       '<button class="del" data-id="'+esc(r.id)+'"'+(db&&canWrite===false?' disabled':'')+'>刪除這筆</button></div>';
@@ -212,7 +214,7 @@ D.forEach(function(d,i){
   r.appendChild(c);r.appendChild(s);list.appendChild(r);
   inputs.push(inp);subs.push(s);
 });
-function reset(){inputs.forEach(function(i){i.value=''});posEl.value='';stockEl.value='';recvEl.value='';calc();inputs[0].focus()}
+function reset(){inputs.forEach(function(i){i.value=''});posEl.value='';stockEl.value='';recvEl.value='';tstockEl.value='';drawEl.value='';calc();inputs[0].focus()}
 document.getElementById('clear').addEventListener('click',reset);
 document.getElementById('save').addEventListener('click',function(){
   var t=calc();
@@ -221,6 +223,8 @@ document.getElementById('save').addEventListener('click',function(){
   var pp=getPos();if(pp!==null)rec.pos=pp;
   var ps=getNum(stockEl);if(ps!==null)rec.stock=ps;
   var pr2=getNum(recvEl);if(pr2!==null)rec.recv=pr2;
+  var pt=getNum(tstockEl);if(pt!==null)rec.tstock=pt;
+  var pd=getNum(drawEl);if(pd!==null)rec.draw=pd;
   if(db){
     db.collection('records').add(rec).then(reset).catch(function(e){notify('儲存失敗'+errText(e))});
   }else{
@@ -251,7 +255,7 @@ document.getElementById('clearAll').addEventListener('click',function(){
 });
 migrateBtn.addEventListener('click',function(){
   var a=loadLocal();
-  Promise.all(a.map(function(r){var o={date:r.date,note:r.note||'',counts:r.counts,total:r.total,saved:r.saved||Date.now()};if(r.pos!=null)o.pos=r.pos;if(r.stock!=null)o.stock=r.stock;if(r.recv!=null)o.recv=r.recv;return db.collection('records').add(o)}))
+  Promise.all(a.map(function(r){var o={date:r.date,note:r.note||'',counts:r.counts,total:r.total,saved:r.saved||Date.now()};if(r.pos!=null)o.pos=r.pos;if(r.stock!=null)o.stock=r.stock;if(r.recv!=null)o.recv=r.recv;if(r.tstock!=null)o.tstock=r.tstock;if(r.draw!=null)o.draw=r.draw;return db.collection('records').add(o)}))
     .then(function(){saveLocal([]);showMigrate()}).catch(function(){notify('上傳失敗，請稍後再試。')});
 });
 document.getElementById('clearLocal').addEventListener('click',function(){
@@ -268,7 +272,7 @@ posEl.addEventListener('input',function(){
   calc();
 });
 posEl.addEventListener('focus',function(){posEl.select()});
-[stockEl,recvEl].forEach(function(el){el.addEventListener('input',function(){fmtNum(el);calc()});el.addEventListener('focus',function(){el.select()})});
+[tstockEl,stockEl,recvEl,drawEl].forEach(function(el){el.addEventListener('input',function(){fmtNum(el);calc()});el.addEventListener('focus',function(){el.select()})});
 var PK='cash-photos-v1',ph={blend:true,items:[]};
 try{var pr=JSON.parse(localStorage.getItem(PK)||'null');if(pr&&Array.isArray(pr.items)){ph.items=pr.items;ph.blend=pr.blend!==false}}catch(e){}
 var phLayer=document.getElementById('photos'),phList=document.getElementById('photoList'),phBlend=document.getElementById('photoBlend'),phFile=document.getElementById('photoFile');
