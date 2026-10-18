@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>點鈔計算機</title>
+<style>
+:root{--bg:#eef1f5;--cardbase:#ffffff;--text:#1c1f24;--muted:#5f6672;--line:rgba(120,130,145,.35);--accent:#2563eb;--inbg:rgba(255,255,255,.75);--btn:#1c1f24;--btntext:#fff;--op:30;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;padding:16px;background-size:cover;background-position:center;background-attachment:fixed;background-repeat:no-repeat}
+.wrap{max-width:720px;margin:0 auto}
+h1{font-size:22px;margin:6px 0 12px}
+.card{background:color-mix(in srgb,var(--cardbase) calc(var(--op)*1%),transparent);border:1px solid var(--line);border-radius:14px;padding:8px 12px;overflow-x:auto}
+table{width:100%;table-layout:fixed;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:8px 4px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--text);font-weight:800;font-size:15px}
+th:first-child,td:first-child{text-align:center;font-weight:700}
+td:first-child{font-size:22px}
+tr:last-child td{border-bottom:0}
+input[type=number],.atm input{width:100%;min-width:0;box-sizing:border-box;padding:8px 4px;font-size:18px;font-weight:700;text-align:center;border:1px solid var(--line);border-radius:8px;background:var(--inbg);color:var(--text)}
+input[type=number]:focus,.atm input:focus{outline:2px solid var(--accent);border-color:transparent}
+.hint{font-size:12px;font-weight:700;color:var(--muted);margin-top:2px}
+.sub{font-weight:800;font-size:16px}
+.total{text-shadow:none;display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:16px 20px;background:color-mix(in srgb,#fff0a0 calc(min(100,var(--op) + 35)*1%),transparent);color:#3a3000;border:1px solid rgba(200,170,40,.5);border-radius:14px;font-size:18px;font-weight:700}
+.total b{font-size:30px;font-variant-numeric:tabular-nums}
+.panel{margin-top:12px;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.slider{display:flex;align-items:center;gap:8px;font-size:14px;flex:1;min-width:200px}
+.slider input{flex:1}
+button,label.btn{display:inline-block;box-sizing:border-box;padding:10px 14px;border-radius:10px;border:0;background:var(--btn);color:var(--btntext);font-family:inherit;font-size:14px;font-weight:600;line-height:1.3;text-align:center;text-shadow:none;cursor:pointer}
+input[type=file]{display:none}
+.atm{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;font-weight:800;font-size:22px}
+.atm input{max-width:190px;font-size:22px;font-weight:800;text-align:right}
+.grand{font-size:20px}
+.atm b{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums}
+.total.ok{background:color-mix(in srgb,#5fd49a calc(min(100,var(--op) + 35)*1%),transparent);color:#06391f;border-color:rgba(20,130,75,.55)}
+.total.bad{background:color-mix(in srgb,#ff8f8f calc(min(100,var(--op) + 35)*1%),transparent);color:#4a0b0b;border-color:rgba(200,60,60,.55)}
+.rec{margin-top:14px}
+.rec #save,.rec #csave{width:100%}
+.rec .item{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);margin-top:8px}
+.rec .item>div{flex:1}
+.rec .item b{font-size:18px;font-variant-numeric:tabular-nums}
+.rec .when{font-weight:600;font-size:14px}
+.rec .item{flex-wrap:wrap}
+.rec .main{cursor:pointer}
+.rec .item>.detail{flex:0 0 100%;font-size:13px;line-height:1.7;padding:6px 10px;background:var(--inbg);border-radius:8px}
+.rec .x{padding:4px 8px;font-size:12px}
+th:nth-child(1){width:18%}th:nth-child(2),th:nth-child(3),th:nth-child(4){width:20%}th:nth-child(5){width:22%}
+@media (max-width:480px){body{padding:10px}.card{padding:6px 6px}th,td{padding:6px 2px}.hint{font-size:11px}.sub{font-size:14px}td:first-child{font-size:17px}.total{padding:14px}.atm{font-size:19px}.atm b{font-size:26px}.atm input{font-size:19px}.total b{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>點鈔計算機</h1>
+<div class="card" id="tbl">
+<table>
+<thead><tr><th>面額</th><th>捆</th><th>紮</th><th>散</th><th>小計</th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+</div>
+<div class="card atm"><span>總金額</span><b id="total">0</b></div>
+<div class="card atm"><span>ATM 庫存</span><input id="atm" type="text" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+<div class="total grand" id="gbox"><span>合計</span><b id="grand">0</b></div>
+<div class="card atm"><span>前日庫存</span><input id="prev" type="text" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+<div class="card atm"><span>共收</span><input id="recv" type="text" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+<div class="card atm"><span>共付</span><input id="paid" type="text" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+<div class="total grand" id="chk"><span>合計</span><b id="chkv">0</b></div>
+<div class="total"><span>差額 <small id="dnote" style="font-weight:400;font-size:13px"></small></span><b id="diff">0</b></div>
+<div class="card rec">
+<div class="when" style="margin-bottom:8px">結帳紀錄</div>
+<button id="csave">🧾 結帳</button>
+<div id="slist"></div>
+</div>
+<div class="card panel">
+<div class="row">
+<label class="btn">🖼 選擇背景圖<input id="file" type="file" accept="image/*"></label>
+<button id="rmbg">移除背景圖</button>
+<button id="reset">全部清除</button>
+</div>
+<label class="slider">卡片透明度 <input id="op" type="range" min="0" max="100" value="30"> <span id="opv">30%</span></label>
+</div>
+</div>
+<script>
+const DATA=[[2000,2000000,200000],[1000,1000000,100000],[500,500000,50000],[200,200000,20000],[100,100000,10000],[50,100000,10000],[10,20000,2000],[5,20000,2000],[1,5000,500]];
+const fmt=n=>n.toLocaleString("en-US");
+const tbody=document.getElementById("rows");
+DATA.forEach(([d,bun,zha])=>{
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td>${fmt(d)}</td>`+
+    [bun,zha,d].map(v=>`<td><input type="number" inputmode="numeric" min="0" placeholder="0"><div class="hint">${fmt(v)}</div></td>`).join("")+
+    `<td class="sub">0</td>`;
+  tbody.appendChild(tr);
+});
+function calc(){
+  let total=0;
+  [...tbody.children].forEach((tr,i)=>{
+    const unit=[DATA[i][1],DATA[i][2],DATA[i][0]];
+    let s=0;
+    tr.querySelectorAll("input").forEach((inp,j)=>{s+=(parseFloat(inp.value)||0)*unit[j];});
+    tr.querySelector(".sub").textContent=fmt(s);
+    total+=s;
+  });
+  document.getElementById("total").textContent=fmt(total);
+  const b=num(document.getElementById("atm").value);
+  document.getElementById("grand").textContent=fmt(total+b);
+  cur={a:total,b:b,g:total+b};
+  const rEl=document.getElementById("recv"),pEl=document.getElementById("paid"),chk=document.getElementById("chk");
+  const vEl=document.getElementById("prev");
+  const s=num(vEl.value)+num(rEl.value)+num(pEl.value);
+  const empty=vEl.value===""&&rEl.value===""&&pEl.value==="";
+  const same=Math.abs(s-(total+b))<0.005;
+  document.getElementById("chkv").textContent=fmt(s);
+  document.getElementById("diff").textContent=(empty||same)?"0":fmt(Math.round((total+b-s)*100)/100);
+  document.getElementById("dnote").textContent=(empty||same)?"":(s>total+b?"（下方合計較多）":"（上方合計較多）");
+  chk.classList.toggle("bad",!empty&&!same&&s>total+b);
+  document.getElementById("gbox").classList.toggle("bad",!empty&&!same&&total+b>s);
+  chk.classList.toggle("ok",!empty&&same);
+  document.getElementById("gbox").classList.toggle("ok",!empty&&same);
+}
+tbody.addEventListener("input",calc);
+document.getElementById("atm").addEventListener("input",calc);
+document.getElementById("recv").addEventListener("input",calc);
+document.getElementById("paid").addEventListener("input",calc);
+document.getElementById("prev").addEventListener("input",calc);
+function num(v){return parseFloat(String(v).replace(/,/g,""))||0;}
+["atm","prev","recv","paid"].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener("input",()=>{
+    const raw=el.value.replace(/[^0-9.]/g,"");
+    const p=raw.split("."),ip=p[0],dp=p[1];
+    el.value=(ip?Number(ip).toLocaleString("en-US"):(dp!==undefined?"0":""))+(dp!==undefined?"."+dp.slice(0,2):"");
+  });
+});
+var cur={a:0,b:0,g:0};
+document.getElementById("reset").onclick=()=>{tbody.querySelectorAll("input").forEach(i=>i.value="");document.getElementById("atm").value="";document.getElementById("prev").value="";document.getElementById("recv").value="";document.getElementById("paid").value="";calc();};
+calc();
+
+// 透明度（數字越小越透明，背景圖越清楚）
+const op=document.getElementById("op"),opv=document.getElementById("opv");
+function setOp(v){document.documentElement.style.setProperty("--op",v);op.value=v;opv.textContent=v+"%";}
+op.addEventListener("input",()=>{setOp(op.value);try{localStorage.setItem("op",op.value)}catch(e){}});
+try{const s=localStorage.getItem("op");if(s!==null)setOp(s);}catch(e){}
+
+// 背景圖：只在你的瀏覽器裡處理，不會上傳
+function setBg(url){document.body.style.backgroundImage=`url("${url}")`;}
+try{const s=localStorage.getItem("bg");if(s)setBg(s);}catch(e){}
+document.getElementById("file").addEventListener("change",e=>{
+  const f=e.target.files[0];if(!f)return;
+  const img=new Image(),r=new FileReader();
+  r.onload=()=>{img.onload=()=>{
+    const k=Math.min(1,1400/Math.max(img.width,img.height));
+    const c=document.createElement("canvas");c.width=img.width*k;c.height=img.height*k;
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+    const url=c.toDataURL("image/jpeg",.8);
+    setBg(url);
+    try{localStorage.setItem("bg",url)}catch(e){}
+  };img.src=r.result;};
+  r.readAsDataURL(f);
+});
+document.getElementById("rmbg").onclick=()=>{document.body.style.backgroundImage="";try{localStorage.removeItem("bg")}catch(e){}};
+
+// ===== 結帳紀錄（只存在你自己的瀏覽器）=====
+var srec=[];
+try{srec=JSON.parse(localStorage.getItem("srecs")||"[]")}catch(e){srec=[]}
+function saveSrec(){try{localStorage.setItem("srecs",JSON.stringify(srec))}catch(e){}}
+function esc(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function N(v){return Number(v)||0;}
+function renderSrec(){
+  const el=document.getElementById("slist");
+  el.innerHTML=srec.length?"":'<div class="hint" style="margin-top:8px">還沒有結帳紀錄</div>';
+  srec.forEach((r,i)=>{
+    const d=document.createElement("div");d.className="item";
+    const c=Array.isArray(r.c)?r.c:null;
+    let det="";
+    if(c){det=DATA.map(([dn],k)=>{const q=Array.isArray(c[k])?c[k]:[0,0,0];const x=N(q[0]),y=N(q[1]),z=N(q[2]);return (x||y||z)?`<div>${fmt(dn)} 元：${x} 捆　${y} 扎　${z} 散</div>`:"";}).join("")||"<div>（沒有填任何面額）</div>";}else det="<div>（沒有面額明細）</div>";
+    const df=Math.round((N(r.g)-(N(r.v)+N(r.r)+N(r.p)))*100)/100;const bal=Math.abs(df)<0.005;
+    d.innerHTML=`<div class="main"><div class="when">${esc(r.t||"")} ▾</div><div class="hint">總金額 ${fmt(N(r.a))} + ATM 庫存 ${fmt(N(r.b))} = 合計 ${fmt(N(r.g))}</div><div class="hint">前日庫存 ${fmt(N(r.v))} + 共收 ${fmt(N(r.r))} + 共付 ${fmt(N(r.p))} = ${fmt(N(r.v)+N(r.r)+N(r.p))}　${bal?"✓ 平衡":"✗ 差額 "+fmt(df)}</div></div><b>${fmt(N(r.g))}</b><button class="x" data-i="${i}">✕</button><div class="detail" hidden>${det}</div>`;
+    el.appendChild(d);
+  });
+}
+document.getElementById("slist").addEventListener("click",e=>{
+  const x=e.target.closest(".x");
+  if(x){
+    if(x.dataset.sure!=="1"){x.dataset.sure="1";x.textContent="確定刪除?";setTimeout(()=>{x.dataset.sure="";x.textContent="✕";},3000);return;}
+    srec.splice(+x.dataset.i,1);saveSrec();renderSrec();return;
+  }
+  const m=e.target.closest(".main");
+  if(m){const dt=m.parentElement.querySelector(".detail");dt.hidden=!dt.hidden;}
+});
+document.getElementById("csave").onclick=()=>{
+  const t=new Date().toLocaleString("zh-TW",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false});
+  const c=[...tbody.children].map(tr=>[...tr.querySelectorAll("input")].map(i=>parseFloat(i.value)||0));
+  const rv=num(document.getElementById("recv").value),pv=num(document.getElementById("paid").value),prev=num(document.getElementById("prev").value);
+  const g=cur.g;
+  srec.unshift({t:t,v:prev,a:cur.a,b:cur.b,g:g,r:rv,p:pv,c:c});
+  saveSrec();renderSrec();
+};
+renderSrec();
+</script>
+</body>
+</html>
